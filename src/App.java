@@ -79,7 +79,11 @@ public class App {
         System.out.println("3 - Pedidos de um produto, em arquivo");
         System.out.println("0 - Sair");
         System.out.print("Digite sua opção: ");
-        return Integer.parseInt(teclado.nextLine());
+        try {
+            return Integer.parseInt(teclado.nextLine());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /**
@@ -142,11 +146,15 @@ public class App {
 
     static <K> Produto localizarProduto(ABB<K, Produto> produtosCadastrados, K chave) {
         cabecalho();
-        Produto localizado = produtosCadastrados.pesquisar(chave);
-        System.out.println("Tempo: " + produtosCadastrados.getTempo());
-        System.out.println("Comparações: " + produtosCadastrados.getComparacoes());
-        pausa();
-        return localizado;
+        try {
+            Produto localizado = produtosCadastrados.pesquisar(chave);
+            System.out.println("Tempo: " + produtosCadastrados.getTempo());
+            System.out.println("Comparações: " + produtosCadastrados.getComparacoes());
+            return localizado;
+        } catch (NoSuchElementException e) {
+            System.out.println("Produto não encontrado.");
+            return null;
+        }
     }
 
     private static void mostrarProduto(Produto produto) {
@@ -170,9 +178,13 @@ public class App {
             quantProdutos = sorteio.nextInt(8) + 1;
             for (int j = 0; j < quantProdutos; j++) {
                 int id = sorteio.nextInt(7750) + 10_000;
-                Produto prod = produtosPorId.pesquisar(id);
-                ped.incluirProduto(prod);
-                inserirNaTabela(prod, ped);
+                try {
+                    Produto prod = produtosPorId.pesquisar(id);
+                    ped.incluirProduto(prod);
+                    inserirNaTabela(prod, ped);
+                } catch (NoSuchElementException e) {
+                    // ID sorteado não existe na árvore, ignora
+                }
             }
             pedidos.inserir(ped);
         }
@@ -180,7 +192,14 @@ public class App {
     }
 
     private static void inserirNaTabela(Produto produto, Pedido pedido) {
-        // TODO
+        Lista<Pedido> listaPedidos;
+        try {
+            listaPedidos = pedidosPorProduto.pesquisar(produto);
+        } catch (NoSuchElementException e) {
+            listaPedidos = new Lista<>();
+            pedidosPorProduto.inserir(produto, listaPedidos);
+        }
+        listaPedidos.inserir(pedido);
     }
 
     private static void recortarArvore(ABB<String, Produto> arvore) {
@@ -191,17 +210,26 @@ public class App {
         System.out.print("Digite ponto de fim do filtro: ");
         String descFim = teclado.nextLine();
 
-        System.out.println(arvore.recortar(descIni, descFim));
+        try {
+            System.out.println(arvore.recortar(descIni, descFim));
+        } catch (IllegalStateException e) {
+            System.out.println("A árvore está vazia ou não há produtos no intervalo.");
+        }
     }
 
     static void pedidosDoProduto(){
         Produto produto = localizarProdutoID();
-        String nomeArquivo = "RelatorioProduto"+produto.hashCode()+".txt";    
+        if (produto == null) {
+            System.out.println("Produto não encontrado. Não é possível gerar relatório.");
+            return;
+        }
+        String nomeArquivo = "RelatorioProduto"+produto.hashCode()+".txt";
         try (FileWriter arquivoRelatorio = new FileWriter(nomeArquivo)){
             Lista<Pedido> listaProd = pedidosPorProduto.pesquisar(produto);
             arquivoRelatorio.append(listaProd+"\n");
-            arquivoRelatorio.close();
             System.out.println("Dados salvos em "+nomeArquivo);
+        } catch (NoSuchElementException e) {
+            System.out.println("Nenhum pedido encontrado para este produto.");
         } catch (IOException e) {
             System.out.println("Problemas para criar o arquivo "+nomeArquivo+". Tente novamente");
         }
